@@ -3,8 +3,8 @@ from pathlib import Path
 from pyvis.network import Network
 
 class GraphVisualizer:
-    def __init__(self, output_path: Path):
-        self.output_path = output_path
+    def __init__(self, output_path: str | Path):
+        self.output_path = Path(output_path)
         
     def generate_html(self, G: nx.DiGraph):
         """Generate an interactive HTML visualization using PyVis."""

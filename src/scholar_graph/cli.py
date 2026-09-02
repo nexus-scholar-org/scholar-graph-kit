@@ -1,21 +1,30 @@
-import typer
-import json
+from __future__ import annotations
+
 import asyncio
+import json
 from pathlib import Path
+from typing import Optional
+
+import typer
 from rich.console import Console
 
 from .builder import CitationGraphBuilder
-from .visualizer import GraphVisualizer
 from .config import settings
+from .visualizer import GraphVisualizer
 
-app = typer.Typer(help="Scholar Graph Kit: Build and visualize citation graphs from Open Access DOIs.")
+app = typer.Typer(
+    help="Scholar Graph Kit: Build and visualize citation graphs from Open Access DOIs.",
+    no_args_is_help=True,
+)
 console = Console()
+
 
 @app.command("build")
 def build(
-    dois: list[str] = typer.Option(None, "--doi", "-d", help="Specific DOI to map (can be specified multiple times)"),
-    input_file: Path = typer.Option(None, "--input", "-i", help="JSON file containing results from scholar-search-kit"),
-    output_file: Path = typer.Option(Path("graph.html"), "--output", "-o", help="Path to save the output HTML visualization")
+    dois: Optional[list[str]] = typer.Option(None, "--doi", "-d", help="Specific DOI to map (can be specified multiple times)"),
+    input_file: Optional[Path] = typer.Option(None, "--input", "-i", help="JSON file containing results from scholar-search-kit"),
+    output_file: Path = typer.Option(Path("graph.html"), "--output", "-o", help="Path to save the output HTML visualization"),
+    json_output: Optional[Path] = typer.Option(None, "--json-output", "-j", help="Path to save graph topology and PageRank JSON"),
 ):
     """Build a citation graph from DOIs and generate an interactive HTML map."""
     doi_list = list(dois) if dois else []
@@ -54,9 +63,9 @@ def build(
                 pass # Simple callback
             G = await builder.build_graph(doi_list, progress_callback=update_progress)
             
-        return G
+        return G, builder
         
-    G = asyncio.run(run_build())
+    G, builder = asyncio.run(run_build())
     
     console.print(f"[bold green]Graph built successfully![/bold green] (Nodes: {G.number_of_nodes()}, Edges: {G.number_of_edges()})")
     
@@ -65,7 +74,45 @@ def build(
     vis.generate_html(G)
     
     console.print(f"[bold green]Saved visualization to {output_file}[/bold green]")
-    console.print("You can open this file in any web browser.")
+
+    if json_output:
+        builder.export_json(G, json_output)
+        console.print(f"[bold green]Saved graph JSON & PageRank to {json_output}[/bold green]")
+    else:
+        # Default adjacent json if not specified
+        default_json = output_file.with_suffix(".json")
+        builder.export_json(G, default_json)
+
+
+@app.command("pagerank")
+def pagerank(
+    graph_file: Path = typer.Argument(..., help="Path to graph.json exported by build command"),
+):
+    """Display PageRank scores computed from a citation graph."""
+    if not graph_file.exists():
+        console.print(f"[bold red]Error:[/bold red] Graph file {graph_file} not found.")
+        raise typer.Exit(1)
+
+    with open(graph_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    pr = data.get("pagerank", {})
+    if not pr:
+        console.print("[yellow]No PageRank scores found in graph JSON.[/yellow]")
+        return
+
+    from rich.table import Table
+    table = Table(title=f"PageRank Scores ({graph_file.name})")
+    table.add_column("Rank", justify="right", style="cyan")
+    table.add_column("DOI / Identifier", style="white")
+    table.add_column("Normalized PageRank", style="magenta")
+
+    sorted_pr = sorted(pr.items(), key=lambda x: x[1], reverse=True)
+    for idx, (node_id, score) in enumerate(sorted_pr, start=1):
+        table.add_row(str(idx), node_id, f"{score:.4f}")
+
+    console.print(table)
+
 
 if __name__ == "__main__":
     app()

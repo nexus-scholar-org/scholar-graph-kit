@@ -25,7 +25,11 @@ dependencies = [
 scholar-graph = "scholar_graph.cli:app"
 
 [tool.uv.sources]
-scholar-search-kit = { path = "../scholar-search-kit" }
+scholar-search-kit = { path = "../scholar-search-kit", editable = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/scholar_graph"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
