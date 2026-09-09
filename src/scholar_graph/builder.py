@@ -81,19 +81,20 @@ class CitationGraphBuilder:
                 if target_doi and source_doi != target_doi:
                     G.add_edge(source_doi, target_doi)
 
-        # Fallback: if no work data was fetched from API (e.g. offline/mock DOIs), populate seed nodes
-        if not works_data and dois:
+        # Fallback: ensure all requested seed DOIs are present in graph even if unindexed by OpenAlex
+        if dois:
             for doi in dois:
                 if doi:
                     doi_clean = doi.replace("https://doi.org/", "").replace("http://doi.org/", "")
-                    G.add_node(
-                        doi_clean,
-                        title=f"Study {doi_clean}",
-                        year=2024,
-                        citations=0,
-                        group=1,
-                        label=doi_clean
-                    )
+                    if doi_clean not in G:
+                        G.add_node(
+                            doi_clean,
+                            title=f"Study {doi_clean}",
+                            year=None,
+                            citations=0,
+                            group=1,
+                            label=doi_clean[:30] + "..." if len(doi_clean) > 30 else doi_clean
+                        )
 
         return G
 

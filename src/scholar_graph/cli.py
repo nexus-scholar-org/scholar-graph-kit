@@ -2,15 +2,22 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
 
 from .builder import CitationGraphBuilder
-from .config import settings
 from .visualizer import GraphVisualizer
+
+# Force UTF-8 on Windows to prevent Rich console UnicodeEncodeError on OEM code pages
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 app = typer.Typer(
     help="Scholar Graph Kit: Build and visualize citation graphs from Open Access DOIs.",
@@ -21,10 +28,10 @@ console = Console()
 
 @app.command("build")
 def build(
-    dois: Optional[list[str]] = typer.Option(None, "--doi", "-d", help="Specific DOI to map (can be specified multiple times)"),
-    input_file: Optional[Path] = typer.Option(None, "--input", "-i", help="JSON file containing results from scholar-search-kit"),
+    dois: list[str] | None = typer.Option(None, "--doi", "-d", help="Specific DOI to map (can be specified multiple times)"),
+    input_file: Path | None = typer.Option(None, "--input", "-i", help="JSON file containing results from scholar-search-kit"),
     output_file: Path = typer.Option(Path("graph.html"), "--output", "-o", help="Path to save the output HTML visualization"),
-    json_output: Optional[Path] = typer.Option(None, "--json-output", "-j", help="Path to save graph topology and PageRank JSON"),
+    json_output: Path | None = typer.Option(None, "--json-output", "-j", help="Path to save graph topology and PageRank JSON"),
 ):
     """Build a citation graph from DOIs and generate an interactive HTML map."""
     doi_list = list(dois) if dois else []
