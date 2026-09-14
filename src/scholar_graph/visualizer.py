@@ -1,13 +1,20 @@
-import networkx as nx
+from __future__ import annotations
+
 from pathlib import Path
-from pyvis.network import Network
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import networkx as nx
 
 class GraphVisualizer:
     def __init__(self, output_path: str | Path):
         self.output_path = Path(output_path)
-        
+
     def generate_html(self, G: nx.DiGraph):
         """Generate an interactive HTML visualization using PyVis."""
+        # Deferred (P7.7): module load stays stdlib-only
+        from pyvis.network import Network
+
         # Scale nodes based on citations and prepare tooltips
         for node, data in G.nodes(data=True):
             citations = data.get("citations", 0)

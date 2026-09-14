@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-import networkx as nx
-from rich.progress import Progress
-from scholar_search.http_client import AcademicHttpClient
+from typing import TYPE_CHECKING
 
-from .models import GraphNode, GraphEdge
-from .config import settings
+if TYPE_CHECKING:
+    import networkx as nx
+    from scholar_search.http_client import AcademicHttpClient
 
 class CitationGraphBuilder:
     def __init__(self, http_client: AcademicHttpClient):
@@ -28,6 +27,8 @@ class CitationGraphBuilder:
 
     async def build_graph(self, dois: list[str], progress_callback=None) -> nx.DiGraph:
         """Build a directed citation graph from a list of DOIs."""
+        import networkx as nx  # Deferred (P7.7): module load stays stdlib-only
+
         G = nx.DiGraph()
         
         # 1. Fetch data for all DOIs
@@ -101,6 +102,8 @@ class CitationGraphBuilder:
     @staticmethod
     def compute_pagerank(G: nx.DiGraph, alpha: float = 0.85) -> dict[str, float]:
         """Calculates normalized PageRank scores for all nodes in the graph."""
+        import networkx as nx  # Deferred (P7.7): module load stays stdlib-only
+
         if len(G.nodes) == 0:
             return {}
         try:
@@ -114,6 +117,9 @@ class CitationGraphBuilder:
     def export_json(G: nx.DiGraph, output_path: str | Path) -> Path:
         """Exports graph structure and PageRank to a node-link JSON file."""
         import json
+
+        # Deferred (P7.7): module load stays stdlib-only
+        import networkx as nx
 
         p = Path(output_path)
         p.parent.mkdir(parents=True, exist_ok=True)
