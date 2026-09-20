@@ -8,10 +8,11 @@ if TYPE_CHECKING:
     import networkx as nx
     from scholar_search.http_client import AcademicHttpClient
 
+
 class CitationGraphBuilder:
     def __init__(self, http_client: AcademicHttpClient):
         self.http_client = http_client
-        
+
     async def fetch_work_data(self, doi: str) -> dict | None:
         """Fetch metadata for a single DOI from OpenAlex."""
         url = f"https://api.openalex.org/works/https://doi.org/{doi}"
@@ -30,20 +31,20 @@ class CitationGraphBuilder:
         import networkx as nx  # Deferred (P7.7): module load stays stdlib-only
 
         G = nx.DiGraph()
-        
+
         # 1. Fetch data for all DOIs
         works_data = []
         tasks = []
         for doi in dois:
             tasks.append(self.fetch_work_data(doi))
-            
+
         for coro in asyncio.as_completed(tasks):
             res = await coro
             if res:
                 works_data.append(res)
             if progress_callback:
                 progress_callback()
-            
+
         # 2. Build mapping and add nodes
         wid_to_doi = {}
         for work in works_data:
@@ -51,24 +52,26 @@ class CitationGraphBuilder:
             doi_url = work.get("doi")
             if not wid or not doi_url:
                 continue
-                
-            doi_clean = doi_url.replace("https://doi.org/", "").replace("http://doi.org/", "")
+
+            doi_clean = doi_url.replace("https://doi.org/", "").replace(
+                "http://doi.org/", ""
+            )
             wid_to_doi[wid] = doi_clean
-            
+
             title = work.get("title") or "Unknown Title"
             year = work.get("publication_year")
             citations = work.get("cited_by_count", 0)
-            
+
             # Add node to networkx
             G.add_node(
-                doi_clean, 
-                title=title, 
-                year=year, 
-                citations=citations, 
+                doi_clean,
+                title=title,
+                year=year,
+                citations=citations,
                 group=1,
-                label=title[:30] + "..." if len(title) > 30 else title
+                label=title[:30] + "..." if len(title) > 30 else title,
             )
-            
+
         # 3. Add edges (Citations)
         for work in works_data:
             source_wid = work.get("id")
@@ -86,7 +89,9 @@ class CitationGraphBuilder:
         if dois:
             for doi in dois:
                 if doi:
-                    doi_clean = doi.replace("https://doi.org/", "").replace("http://doi.org/", "")
+                    doi_clean = doi.replace("https://doi.org/", "").replace(
+                        "http://doi.org/", ""
+                    )
                     if doi_clean not in G:
                         G.add_node(
                             doi_clean,
@@ -94,7 +99,9 @@ class CitationGraphBuilder:
                             year=None,
                             citations=0,
                             group=1,
-                            label=doi_clean[:30] + "..." if len(doi_clean) > 30 else doi_clean
+                            label=doi_clean[:30] + "..."
+                            if len(doi_clean) > 30
+                            else doi_clean,
                         )
 
         return G
@@ -109,7 +116,10 @@ class CitationGraphBuilder:
         try:
             pr = nx.pagerank(G, alpha=alpha)
             max_pr = max(pr.values()) if pr else 1.0
-            return {k.lower(): round((v / max_pr) if max_pr > 0 else v, 4) for k, v in pr.items()}
+            return {
+                k.lower(): round((v / max_pr) if max_pr > 0 else v, 4)
+                for k, v in pr.items()
+            }
         except Exception:
             return {k.lower(): 1.0 for k in G.nodes}
 
@@ -127,4 +137,56 @@ class CitationGraphBuilder:
         data["pagerank"] = CitationGraphBuilder.compute_pagerank(G)
         with open(p, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
+        return p
+
+    @staticmethod
+    def _sanitize_node_attrs(G: "nx.DiGraph") -> None:
+        """Replace None values with defaults for XML-safe export."""
+        for node in G.nodes:
+            attrs = G.nodes[node]
+            for key, value in attrs.items():
+                if value is None:
+                    if key in ("year", "citations", "pagerank"):
+                        attrs[key] = 0
+                    else:
+                        attrs[key] = ""
+
+    @staticmethod
+    def export_gexf(G: "nx.DiGraph", output_path: str | Path) -> Path:
+        """Export graph to GEXF format for Gephi/yEd visualization."""
+        import networkx as nx  # Deferred (P7.7)
+
+        p = Path(output_path)
+        if p.suffix != ".gexf":
+            p = p.with_suffix(".gexf")
+        p.parent.mkdir(parents=True, exist_ok=True)
+
+        # Ensure pagerank exists
+        if not any("pagerank" in G.nodes[n] for n in G.nodes):
+            pr = nx.pagerank(G) if len(G.nodes) > 0 else {}
+            for node, score in pr.items():
+                G.nodes[node]["pagerank"] = round(score, 4)
+
+        CitationGraphBuilder._sanitize_node_attrs(G)
+        nx.write_gexf(G, str(p))
+        return p
+
+    @staticmethod
+    def export_graphml(G: "nx.DiGraph", output_path: str | Path) -> Path:
+        """Export graph to GraphML format for yEd visualization."""
+        import networkx as nx  # Deferred (P7.7)
+
+        p = Path(output_path)
+        if p.suffix != ".graphml":
+            p = p.with_suffix(".graphml")
+        p.parent.mkdir(parents=True, exist_ok=True)
+
+        # Ensure pagerank exists
+        if not any("pagerank" in G.nodes[n] for n in G.nodes):
+            pr = nx.pagerank(G) if len(G.nodes) > 0 else {}
+            for node, score in pr.items():
+                G.nodes[node]["pagerank"] = round(score, 4)
+
+        CitationGraphBuilder._sanitize_node_attrs(G)
+        nx.write_graphml(G, str(p))
         return p

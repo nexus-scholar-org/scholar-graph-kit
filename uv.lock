@@ -1069,14 +1069,14 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pyvis", specifier = ">=0.3.2" },
     { name = "rich", specifier = ">=13.0.0" },
-    { name = "scholar-search-kit", directory = "../scholar-search-kit" },
+    { name = "scholar-search-kit", editable = "../scholar-search-kit" },
     { name = "typer", specifier = ">=0.9.0" },
 ]
 
 [[package]]
 name = "scholar-search-kit"
 version = "0.1.0"
-source = { directory = "../scholar-search-kit" }
+source = { editable = "../scholar-search-kit" }
 dependencies = [
     { name = "hishel" },
     { name = "httpx" },
